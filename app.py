@@ -168,6 +168,9 @@ from selenium.webdriver.chrome.options import Options
 import time
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium import webdriver
+from selenium.webdriver.chrome.options import Options
 import json
 
 app = Flask(__name__)
@@ -197,10 +200,8 @@ class WebManager:
         """Initialize the WebDriver"""
         if self.driver is None:
             chrome_options = self.get_chrome_options()
-            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-            service = Service(executable_path=chromedriver_path)
-            self.driver = webdriver.Chrome(service=service, options=chrome_options)
-
+            self.driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+            
     def quit_driver(self):
         """Quit the WebDriver"""
         if self.driver:

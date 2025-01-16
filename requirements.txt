@@ -3,3 +3,4 @@ flask-cors==4.0.0
 selenium==4.16.0
 APScheduler==3.10.4
 gunicorn==21.2.0
+webdriver-manager==3.8.5
