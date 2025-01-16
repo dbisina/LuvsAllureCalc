@@ -18,3 +18,4 @@ apt-get install -y google-chrome-stable
 wget https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
 unzip chromedriver_linux64.zip -d $HOME/chromedriver/
 chmod +x $HOME/chromedriver/chromedriver
+
