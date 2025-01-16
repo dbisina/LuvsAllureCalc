@@ -23,7 +23,8 @@ def get_chrome_options():
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
+    chrome_options.add_argument('--disable-setuid-sandbox')
+    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
     return chrome_options
 
 def get_usd_to_naira_rate():
@@ -36,13 +37,15 @@ def get_usd_to_naira_rate():
     for attempt in range(max_retries):
         try:
             chrome_options = get_chrome_options()
-            driver = webdriver.Chrome(
-                service=Service(os.environ.get("CHROMEDRIVER_PATH", "./chromedriver")),
-                options=chrome_options
-            )
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+            print(f"Using ChromeDriver from: {chromedriver_path}")  # Debug log
             
-            driver.get(url)
-            driver.implicitly_wait(20)
+            service = Service(executable_path=chromedriver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
+            
+            # Add these lines to properly load the page
+            driver.get(url)  # Add this line
+            driver.implicitly_wait(20)  # Add this line
             
             usd_sell_element = driver.find_element(By.XPATH, '//*[@id="usdSell"]')
             usd_sell_text = usd_sell_element.text
