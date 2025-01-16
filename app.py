@@ -1,4 +1,3 @@
-'''
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from selenium import webdriver
@@ -9,8 +8,6 @@ import time
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 import json
-from webdriver_manager.chrome import ChromeDriverManager
-from selenium import webdriver
 
 app = Flask(__name__)
 CORS(app)
@@ -19,37 +16,48 @@ CORS(app)
 current_rate = None
 last_update_time = None
 
-
-
-
 def get_chrome_options():
     """Configure Chrome options for cloud deployment"""
     chrome_options = Options()
-    chrome_options.add_argument('--headless')
+    chrome_options.add_argument('--headless=new')  # Updated headless argument
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
+    chrome_options.add_argument('--disable-setuid-sandbox')
+    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
     return chrome_options
-
 
 def get_usd_to_naira_rate():
     """Scrape USD to Naira rate with error handling and retries"""
     global current_rate, last_update_time
     
     url = 'https://abokiforex.app/dollar-to-naira-black-market'
-    max_retries = 15
+    max_retries = 3
     
     for attempt in range(max_retries):
+        driver = None
         try:
             chrome_options = get_chrome_options()
-            driver = webdriver.Chrome(ChromeDriverManager().install(), options=chrome_options)
+            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
+            print(f"Using ChromeDriver from: {chromedriver_path}")
             
-            # Add these lines to properly load the page
-            driver.get(url)  # Add this line
-            driver.implicitly_wait(20)  # Add this line
+            # Add error checking for ChromeDriver path
+            if not os.path.exists(chromedriver_path):
+                print(f"ChromeDriver not found at {chromedriver_path}")
+                raise Exception(f"ChromeDriver not found at {chromedriver_path}")
+
+            service = Service(executable_path=chromedriver_path)
+            driver = webdriver.Chrome(service=service, options=chrome_options)
             
+            print("Chrome instance created successfully")
+            driver.get(url)
+            print(f"Page loaded: {url}")
+            
+            driver.implicitly_wait(20)
             usd_sell_element = driver.find_element(By.XPATH, '//*[@id="usdSell"]')
             usd_sell_text = usd_sell_element.text
+            
+            print(f"Found USD sell rate: {usd_sell_text}")
             
             if not usd_sell_text:
                 raise ValueError("USD Sell rate is empty")
@@ -58,32 +66,19 @@ def get_usd_to_naira_rate():
             current_rate = rate
             last_update_time = time.time()
             
-            # Save to file as backup
-            with open('last_rate.json', 'w') as f:
-                json.dump({
-                    'rate': rate,
-                    'timestamp': last_update_time
-                }, f)
-            
             return rate
             
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
-                # If all retries failed, try to load from backup file
-                try:
-                    with open('last_rate.json', 'r') as f:
-                        data = json.load(f)
-                        if time.time() - data['timestamp'] < 86400:  # Use backup if less than 24h old
-                            return data['rate']
-                except:
-                    raise Exception("Failed to get exchange rate")
-            time.sleep(2 ** attempt)  # Exponential backoff
+                return 1200  # Return a fallback rate if all attempts fail
+            time.sleep(2 ** attempt)
         finally:
-            try:
-                driver.quit()
-            except:
-                pass
+            if driver:
+                try:
+                    driver.quit()
+                except:
+                    pass
 
 def calculate_selling_cost(acquisition_cost):
     """Calculate selling cost based on acquisition cost"""
@@ -100,7 +95,7 @@ scheduler.start()
 @app.route('/api/health')
 def health_check():
     return jsonify({'status': 'healthy'}), 200
-
+    
 @app.route('/api/calculate', methods=['POST'])
 def calculate_price():
     try:
@@ -153,119 +148,4 @@ if __name__ == '__main__':
         print("Failed to get initial exchange rate")
     
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port) 
-'''
-
-# app.py
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import requests
-from bs4 import BeautifulSoup
-import time
-
-app = Flask(__name__)
-CORS(app)  # Enable CORS for all routes
-
-def get_usd_to_naira_rate():
-    url = 'https://abokiforex.app/dollar-to-naira-black-market'
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
-    try:
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        usd_sell_element = soup.find(id='usdSell')
-        
-        if not usd_sell_element:
-            raise ValueError("Could not find USD Sell rate element")
-            
-        usd_sell_text = usd_sell_element.text.strip()
-        
-        if not usd_sell_text:
-            raise ValueError("USD Sell rate is empty")
-            
-        return float(usd_sell_text.replace(',', ''))
-        
-    except requests.RequestException as e:
-        raise Exception(f"Error making request: {str(e)}")
-    except Exception as e:
-        raise Exception(f"Error: {str(e)}")
-
-def selling_cost_calculator(acquisition_cost):
-    x = acquisition_cost
-    y = 2 * x + (0.35 * x + x)
-    selling_cost = y / 2
-    return selling_cost
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    return jsonify({
-        'status': 'healthy',
-        'timestamp': time.time()
-    })
-
-@app.route('/api/get-rate', methods=['GET'])
-def get_rate():
-    try:
-        rate = get_usd_to_naira_rate()
-        return jsonify({
-            'success': True,
-            'rate': rate
-        })
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-@app.route('/api/calculate', methods=['POST'])
-def calculate():
-    try:
-        data = request.get_json()
-        
-        if not data or 'cost_price' not in data or 'shipping_cost' not in data:
-            return jsonify({
-                'success': False,
-                'error': 'Missing required fields: cost_price and shipping_cost'
-            }), 400
-            
-        cost_price = float(data['cost_price'])
-        shipping_cost = float(data['shipping_cost'])
-        
-        acquisition_cost = cost_price + shipping_cost
-        selling_cost_usd = selling_cost_calculator(acquisition_cost)
-        
-        try:
-            usd_to_naira_rate = get_usd_to_naira_rate()
-            selling_cost_naira = (selling_cost_usd * usd_to_naira_rate) + 5000
-        except Exception as e:
-            return jsonify({
-                'success': False,
-                'error': f'Error getting exchange rate: {str(e)}'
-            }), 500
-        
-        return jsonify({
-            'success': True,
-            'data': {
-                'selling_price_usd': round(selling_cost_usd, 2),
-                'selling_price_naira': round(selling_cost_naira, 2),
-                'exchange_rate': usd_to_naira_rate
-            }
-        })
-        
-    except ValueError as e:
-        return jsonify({
-            'success': False,
-            'error': f'Invalid input: {str(e)}'
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': str(e)
-        }), 500
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=port)

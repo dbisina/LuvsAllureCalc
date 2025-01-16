@@ -1,10 +1,9 @@
-# build.sh
 #!/bin/bash
 
 # Install Python packages
 pip install -r requirements.txt
 
-# Create directory for Chrome and ChromeDriver
+# Create directories
 mkdir -p $HOME/chrome
 mkdir -p $HOME/chromedriver
 
@@ -14,8 +13,14 @@ echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/source
 apt-get update
 apt-get install -y google-chrome-stable
 
-# Download and set up ChromeDriver in user directory
-wget https://chromedriver.storage.googleapis.com/$(curl -sS chromedriver.storage.googleapis.com/LATEST_RELEASE)/chromedriver_linux64.zip
-unzip chromedriver_linux64.zip -d $HOME/chromedriver/
-chmod +x $HOME/chromedriver/chromedriver
+# Get the installed Chrome version
+CHROME_VERSION=$(google-chrome --version | awk '{ print $3 }' | cut -d'.' -f1)
 
+# Download matching ChromeDriver version
+CHROMEDRIVER_VERSION=$(curl -s "https://chromedriver.storage.googleapis.com/LATEST_RELEASE_$CHROME_VERSION")
+wget -q "https://chromedriver.storage.googleapis.com/$CHROMEDRIVER_VERSION/chromedriver_linux64.zip"
+unzip -q chromedriver_linux64.zip -d $HOME/chromedriver/
+
+# Make ChromeDriver executable and move to expected location
+chmod +x $HOME/chromedriver/chromedriver
+mv $HOME/chromedriver/chromedriver /usr/local/bin/
