@@ -1,4 +1,8 @@
+# build.sh
 #!/bin/bash
+
+# Install Python packages
+pip install -r requirements.txt
 
 # Create directory for Chrome and ChromeDriver
 mkdir -p $HOME/chrome
