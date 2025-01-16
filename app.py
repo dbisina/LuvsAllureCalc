@@ -28,9 +28,8 @@ def get_chrome_options():
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-setuid-sandbox')
-    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN")
     return chrome_options
+
 
 def get_usd_to_naira_rate():
     """Scrape USD to Naira rate with error handling and retries"""
