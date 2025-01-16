@@ -6,8 +6,8 @@
     <title>Price Calculator</title>
     <style>
         :root {
-            --primary: #000;
-            --primary-dark: #000;
+            --primary: #2563eb;
+            --primary-dark: #1d4ed8;
         }
 
         * {
@@ -150,6 +150,19 @@
             font-size: 1.25rem;
             font-weight: 600;
         }
+
+        .error {
+            background: #fee2e2;
+            color: #991b1b;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .error.active {
+            display: block;
+        }
     </style>
 </head>
 <body>
@@ -160,6 +173,8 @@
     <div class="container">
         <h1>Price Calculator</h1>
         
+        <div class="error" id="errorMessage"></div>
+
         <form id="calculatorForm">
             <div class="form-group">
                 <label for="costPrice">Cost Price (USD)</label>
@@ -184,23 +199,36 @@
                 <div class="result-label">Selling Price (NGN)</div>
                 <div class="result-value" id="ngnResult">₦0.00</div>
             </div>
+
+            <div class="result-item">
+                <div class="result-label">Exchange Rate</div>
+                <div class="result-value" id="rateResult">₦0.00/USD</div>
+            </div>
         </div>
     </div>
+
     <script>
-        const API_URL = 'https://luvsallurecalc.onrender.com/api/calculate';  // You'll need to update this with your actual deployed URL
-    
+        // Replace with your Render.com backend URL
+        const API_URL = 'https://https://luvsallurecalc.onrender.com/api/calculate';
+
         function showLoader() {
             document.querySelector('.loader').classList.add('active');
         }
-    
+
         function hideLoader() {
             document.querySelector('.loader').classList.remove('active');
         }
-    
+
         function showError(message) {
-            alert(message);  // For simplicity - you might want to create a better error UI
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.classList.add('active');
         }
-    
+
+        function hideError() {
+            document.getElementById('errorMessage').classList.remove('active');
+        }
+
         function formatCurrency(amount, currency = 'USD') {
             return new Intl.NumberFormat('en-US', {
                 style: 'currency',
@@ -209,17 +237,16 @@
                 maximumFractionDigits: 2
             }).format(amount);
         }
-    
+
         document.getElementById('calculatorForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            hideError();
             showLoader();
-    
+
             try {
-                // Get form values
                 const costPrice = parseFloat(document.getElementById('costPrice').value);
                 const shippingCost = parseFloat(document.getElementById('shippingCost').value);
-    
-                // Call API
+
                 const response = await fetch(API_URL, {
                     method: 'POST',
                     headers: {
@@ -230,19 +257,17 @@
                         shippingCost
                     })
                 });
-    
-                if (!response.ok) {
-                    const error = await response.json();
-                    throw new Error(error.error || 'Failed to calculate price');
-                }
-    
+
                 const data = await response.json();
-    
-                // Update results
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to calculate price');
+                }
+
                 document.getElementById('usdResult').textContent = formatCurrency(data.usdPrice);
                 document.getElementById('ngnResult').textContent = formatCurrency(data.nairaPrice, 'NGN');
-    
-                // Show results with animation
+                document.getElementById('rateResult').textContent = `₦${data.exchangeRate.toLocaleString()}/USD`;
+
                 document.querySelector('.results').classList.add('active');
             } catch (error) {
                 showError(error.message);
