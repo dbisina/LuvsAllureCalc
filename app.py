@@ -95,6 +95,11 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(func=get_usd_to_naira_rate, trigger="interval", hours=1)
 scheduler.start()
 
+
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
+
 @app.route('/api/calculate', methods=['POST'])
 def calculate_price():
     try:
@@ -137,9 +142,7 @@ def calculate_price():
     except Exception as e:
         return jsonify({'error': str(e)}), 500
     
-@app.route('/api/health')
-def health_check():
-    return jsonify({'status': 'healthy'}), 200
+
 
 if __name__ == '__main__':
     # Initialize exchange rate on startup
