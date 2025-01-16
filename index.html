@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Price Calculator</title>
+    <style>
+        :root {
+            --primary: #000;
+            --primary-dark: #000;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            background: #f1f5f9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
+        }
+
+        .loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .loader.active {
+            display: flex;
+        }
+
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .container {
+            max-width: 600px;
+            width: 100%;
+            background: white;
+            padding: 2rem;
+            border-radius: 1rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        h1 {
+            color: #1e293b;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #475569;
+            font-weight: 500;
+        }
+
+        input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        button:hover {
+            background: var(--primary-dark);
+        }
+
+        .results {
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid #e2e8f0;
+            display: none;
+        }
+
+        .results.active {
+            display: block;
+            animation: fadeIn 0.5s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .result-item {
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background: #f8fafc;
+            border-radius: 0.5rem;
+        }
+
+        .result-label {
+            color: #64748b;
+            font-size: 0.875rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .result-value {
+            color: #1e293b;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader">
+        <div class="spinner"></div>
+    </div>
+
+    <div class="container">
+        <h1>Price Calculator</h1>
+        
+        <form id="calculatorForm">
+            <div class="form-group">
+                <label for="costPrice">Cost Price (USD)</label>
+                <input type="number" id="costPrice" required step="0.01" min="0">
+            </div>
+
+            <div class="form-group">
+                <label for="shippingCost">Shipping Cost (USD)</label>
+                <input type="number" id="shippingCost" required step="0.01" min="0">
+            </div>
+
+            <button type="submit">Calculate Price</button>
+        </form>
+
+        <div class="results">
+            <div class="result-item">
+                <div class="result-label">Selling Price (USD)</div>
+                <div class="result-value" id="usdResult">$0.00</div>
+            </div>
+
+            <div class="result-item">
+                <div class="result-label">Selling Price (NGN)</div>
+                <div class="result-value" id="ngnResult">₦0.00</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        const API_URL = 'YOUR_RENDER_URL/api/calculate';  // You'll need to update this with your actual deployed URL
+    
+        function showLoader() {
+            document.querySelector('.loader').classList.add('active');
+        }
+    
+        function hideLoader() {
+            document.querySelector('.loader').classList.remove('active');
+        }
+    
+        function showError(message) {
+            alert(message);  // For simplicity - you might want to create a better error UI
+        }
+    
+        function formatCurrency(amount, currency = 'USD') {
+            return new Intl.NumberFormat('en-US', {
+                style: 'currency',
+                currency: currency,
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+    
+        document.getElementById('calculatorForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            showLoader();
+    
+            try {
+                // Get form values
+                const costPrice = parseFloat(document.getElementById('costPrice').value);
+                const shippingCost = parseFloat(document.getElementById('shippingCost').value);
+    
+                // Call API
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        costPrice,
+                        shippingCost
+                    })
+                });
+    
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || 'Failed to calculate price');
+                }
+    
+                const data = await response.json();
+    
+                // Update results
+                document.getElementById('usdResult').textContent = formatCurrency(data.usdPrice);
+                document.getElementById('ngnResult').textContent = formatCurrency(data.nairaPrice, 'NGN');
+    
+                // Show results with animation
+                document.querySelector('.results').classList.add('active');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoader();
+            }
+        });
+    </script>
+</body>
+</html>
