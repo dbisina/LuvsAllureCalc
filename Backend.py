@@ -133,6 +133,10 @@ def calculate_price():
         return jsonify({'error': 'Invalid number format'}), 400
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+    
+@app.route('/api/health')
+def health_check():
+    return jsonify({'status': 'healthy'}), 200
 
 if __name__ == '__main__':
     # Initialize exchange rate on startup
