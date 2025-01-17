@@ -32,6 +32,7 @@ def get_usd_to_naira_rate():
     
     url = 'https://abokiforex.app/dollar-to-naira-black-market'
     max_retries = 3
+    default_rate = 1200.0  # Default fallback rate
     
     for attempt in range(max_retries):
         driver = None
@@ -51,9 +52,14 @@ def get_usd_to_naira_rate():
             print(f"Found USD sell rate: {usd_sell_text}")
             
             if not usd_sell_text:
-                raise ValueError("USD Sell rate is empty")
+                print("Empty rate received, using default rate")
+                return default_rate
             
             rate = float(usd_sell_text.replace(',', ''))
+            if rate <= 0:
+                print("Invalid rate received, using default rate")
+                return default_rate
+                
             current_rate = rate
             last_update_time = time.time()
             
@@ -62,7 +68,8 @@ def get_usd_to_naira_rate():
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
-                max_retries = max_retries - 1  # Return a fallback rate if all attempts fail
+                print("All attempts failed, using default rate")
+                return default_rate
             time.sleep(2 ** attempt)
         finally:
             if driver:
@@ -71,23 +78,34 @@ def get_usd_to_naira_rate():
                 except:
                     pass
 
-
 def calculate_selling_cost(acquisition_cost):
     """Calculate selling cost based on acquisition cost"""
     x = acquisition_cost
     y = 2 * x + (0.35 * x + x)
     return y / 2
 
+def ensure_valid_rate():
+    """Ensure we have a valid exchange rate"""
+    global current_rate, last_update_time
+    
+    if current_rate is None or last_update_time is None:
+        return get_usd_to_naira_rate()
+    
+    # If rate is older than 1 hour, get new rate
+    if time.time() - last_update_time > 3600:
+        return get_usd_to_naira_rate()
+        
+    return current_rate
+
 # Setup scheduler to update exchange rate every hour
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=get_usd_to_naira_rate, trigger="interval", hours=1)
 scheduler.start()
 
-
 @app.route('/api/health')
 def health_check():
-    return jsonify({'status': 'healthy'}), 200
-    
+    return jsonify({'status': 'healthy', 'current_rate': current_rate}), 200
+
 @app.route('/api/calculate', methods=['POST'])
 def calculate_price():
     try:
@@ -98,19 +116,11 @@ def calculate_price():
         # Validate inputs
         if cost_price < 0 or shipping_cost < 0:
             return jsonify({'error': 'Costs cannot be negative'}), 400
-        
-        # Get current exchange rate
-        try:
-            if current_rate is None:
-                rate = get_usd_to_naira_rate()
-            else:
-                # Use cached rate if less than 1 hour old
-                if time.time() - last_update_time < 3600:
-                    rate = current_rate
-                else:
-                    rate = get_usd_to_naira_rate()
-        except Exception as e:
-            return jsonify({'error': f'Failed to get exchange rate: {str(e)}'}), 500
+            
+        # Get and validate exchange rate
+        rate = ensure_valid_rate()
+        if not rate or rate <= 0:
+            return jsonify({'error': 'Failed to get valid exchange rate'}), 500
         
         # Calculate prices
         acquisition_cost = cost_price + shipping_cost
@@ -125,19 +135,17 @@ def calculate_price():
         
     except KeyError:
         return jsonify({'error': 'Missing required fields'}), 400
-    except ValueError:
-        return jsonify({'error': 'Invalid number format'}), 400
+    except ValueError as e:
+        return jsonify({'error': f'Invalid number format: {str(e)}'}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-    
-
+        return jsonify({'error': f'Calculation error: {str(e)}'}), 500
 
 if __name__ == '__main__':
     # Initialize exchange rate on startup
     try:
         get_usd_to_naira_rate()
-    except:
-        print("Failed to get initial exchange rate")
+    except Exception as e:
+        print(f"Failed to get initial exchange rate: {str(e)}")
     
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port)
