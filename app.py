@@ -32,7 +32,7 @@ def get_usd_to_naira_rate():
     
     url = 'https://abokiforex.app/dollar-to-naira-black-market'
     max_retries = 3
-    default_rate = 1200.0  # Default fallback rate
+    default_rate = 1680.0  # Default fallback rate
     
     for attempt in range(max_retries):
         driver = None
