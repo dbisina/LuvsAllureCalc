@@ -4,10 +4,10 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
+from webdriver_manager.chrome import ChromeDriverManager
 import time
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
-import json
 
 app = Flask(__name__)
 CORS(app)
@@ -19,12 +19,11 @@ last_update_time = None
 def get_chrome_options():
     """Configure Chrome options for cloud deployment"""
     chrome_options = Options()
-    chrome_options.add_argument('--headless=new')  # Updated headless argument
+    chrome_options.add_argument('--headless=new')
     chrome_options.add_argument('--disable-gpu')
     chrome_options.add_argument('--no-sandbox')
     chrome_options.add_argument('--disable-dev-shm-usage')
     chrome_options.add_argument('--disable-setuid-sandbox')
-    chrome_options.binary_location = os.environ.get("GOOGLE_CHROME_BIN", "/usr/bin/google-chrome")
     return chrome_options
 
 def get_usd_to_naira_rate():
@@ -38,15 +37,7 @@ def get_usd_to_naira_rate():
         driver = None
         try:
             chrome_options = get_chrome_options()
-            chromedriver_path = os.environ.get("CHROMEDRIVER_PATH")
-            print(f"Using ChromeDriver from: {chromedriver_path}")
-            
-            # Add error checking for ChromeDriver path
-            if not os.path.exists(chromedriver_path):
-                print(f"ChromeDriver not found at {chromedriver_path}")
-                raise Exception(f"ChromeDriver not found at {chromedriver_path}")
-
-            service = Service(executable_path=chromedriver_path)
+            service = Service(ChromeDriverManager().install())
             driver = webdriver.Chrome(service=service, options=chrome_options)
             
             print("Chrome instance created successfully")
@@ -79,6 +70,7 @@ def get_usd_to_naira_rate():
                     driver.quit()
                 except:
                     pass
+
 
 def calculate_selling_cost(acquisition_cost):
     """Calculate selling cost based on acquisition cost"""
