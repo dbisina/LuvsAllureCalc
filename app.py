@@ -62,7 +62,7 @@ def get_usd_to_naira_rate():
         except Exception as e:
             print(f"Attempt {attempt + 1} failed: {str(e)}")
             if attempt == max_retries - 1:
-                return 1200  # Return a fallback rate if all attempts fail
+                max_retries = max_retries - 1  # Return a fallback rate if all attempts fail
             time.sleep(2 ** attempt)
         finally:
             if driver:
